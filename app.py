@@ -1,50 +1,44 @@
 import streamlit as st
 import google.generativeai as genai
 
-# पेज की सेटिंग - स्टडी विद मेंटोर
-st.set_page_config(page_title="Study With Mentor", page_icon="🎓", layout="centered")
+# पेज की सेटिंग - टाइटल और आइकन
+st.set_page_config(page_title="Study With Mentor", page_icon="📚", layout="centered")
 
-st.title("🎓 स्टडी विद मेंटोर (Study With Mentor)")
+st.title("📚 स्टडी विद मेंटोर (Study With Mentor)")
 st.write("नमस्ते! आपका स्वागत है। यहाँ आपका AI मेंटोर आपके हर सवाल का जवाब देने के लिए तैयार है।")
 
-# यूजर से उसकी Gemini API Key लेना (फ्री)
-api_key = st.text_input("अपनी Google Gemini API Key यहाँ डालें (फ्री है):", type="password")
+# सुरक्षा के लिए यूजर से Gemini API Key दर्ज करने की अनुमति
+api_key = st.text_input("अपनी Google Gemini API Key दर्ज करें।", type="password")
 
 if api_key:
     try:
         genai.configure(api_key=api_key)
         
-        # मेंटोर कैरेक्टर का निर्देश (कैरेक्टर टू कैरेक्टर बात करने के लिए)
-        character_persona = (
-            "तुम 'स्टडी विद मेंटोर' वेबसाइट के एक बहुत ही समझदार, अनुभवी और दोस्ताना AI मेंटोर हो। "
-            "तुम हमेशा हिंदी भाषा में ऐसे बात करते हो जैसे कोई बेहतरीन शिक्षक या मार्गदर्शक अपने छात्र की मदद कर रहा हो। "
-            "जवाब हमेशा स्पष्ट, प्रेरणादायक और सटीक होने चाहिए।"
-        )
+        # यहाँ 'gemini-pro' का उपयोग किया गया है जो API v1beta के साथ सही काम करता है
+        model = genai.GenerativeModel('gemini-pro')
+        
+        # चैट का इतिहास सेव करने के लिए सेशन स्टेट
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
 
-        model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash',
-            system_instruction=character_persona
-        )
+        # पुराने मैसेज को स्क्रीन पर दिखाना
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
 
-        if "chat" not in st.session_state:
-            st.session_state.chat = model.start_chat(history=[])
-
-        for message in st.session_state.chat.history:
-            with st.chat_message("user" if message.role == "user" else "model"):
-                st.write(message.parts[0].text)
-
-        user_input = st.chat_input("अपने मेंटोर से कुछ भी पूछें...")
-
-        if user_input:
+        # यूजर से इनपुट लेना
+        if prompt := st.chat_input("अपने मेंटोर से कुछ भी पूछें..."):
+            st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"):
-                st.write(user_input)
-            
-            with st.chat_message("model"):
-                with st.spinner("मेंटोर सोच रहा है..."):
-                    response = st.session_state.chat.send_message(user_input)
-                    st.write(response.text)
+                st.markdown(prompt)
 
+            # AI से जवाब जनरेट करना
+            with st.chat_message("assistant"):
+                response = model.generate_content(prompt)
+                st.markdown(response.text)
+                st.session_state.messages.append({"role": "assistant", "content": response.text})
+                
     except Exception as e:
-        st.error(f"कनेक्शन में दिक्कत है: {e}")
+        st.error(f"त्रुटि: {e}")
 else:
-    st.info("कृपया आगे बढ़ने के लिए ऊपर अपनी फ्री API Key दर्ज करें।")
+    st.warning("कृपया आगे बढ़ने के लिए अपनी API Key दर्ज करें।")
